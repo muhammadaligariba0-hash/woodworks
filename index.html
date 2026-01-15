@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Ibrahim Safuna Wood Works - ULTRA PRO</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{margin:0;font-family:Arial;background:#f1f5f9}
+.hidden{display:none}
+input,button,select{width:100%;padding:8px;margin-top:6px}
+button{border:none;color:#fff;background:#2563eb;cursor:pointer}
+.card{background:#fff;padding:15px;margin:12px;border-radius:8px}
+header{background:#2563eb;color:#fff;padding:12px;display:flex;align-items:center}
+.menu{font-size:22px;cursor:pointer;margin-right:10px}
+#side{position:fixed;top:0;left:-260px;width:250px;height:100%;background:#fff;box-shadow:2px 0 8px #0003;transition:0.3s;padding-top:60px;z-index:99}
+#side button{background:none;color:#000;text-align:left}
+.summary{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.summary div{background:#e5e7eb;padding:10px;border-radius:6px;text-align:center}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+td,th{border:1px solid #ccc;padding:6px;text-align:center}
+.edit{background:#f59e0b}
+.del{background:#ef4444}
+canvas{width:100%;max-height:200px}
+.invoice{border:1px solid #000;padding:10px;margin-top:10px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login" style="height:100vh;display:flex;justify-content:center;align-items:center">
+<div class="card" style="width:280px">
+<h3 align="center">Login</h3>
+<input id="u" placeholder="Username">
+<input id="p" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
+</div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+
+<header>
+<span class="menu" onclick="toggle()">☰</span>
+<b id="companyName">Ibrahim Safuna Wood Works - ULTRA PRO</b>
+</header>
+
+<div id="side">
+<button onclick="show('dash')">📊 Dashboard</button>
+<button onclick="show('sale')">🧾 Sale Entry</button>
+<button onclick="show('exp')">👷 Expense / Labour</button>
+<button onclick="show('cust')">👤 Customer Ledger</button>
+<button onclick="show('lab')">👷 Labour Ledger</button>
+<button onclick="show('rep')">📅 Reports</button>
+<button onclick="show('admin')">⚙ Admin Panel</button>
+<button onclick="backup()">📥 Excel Backup</button>
+<button onclick="logout()">🚪 Logout</button>
+</div>
+
+<!-- DASHBOARD -->
+<div class="card" id="dash">
+<h3>Dashboard</h3>
+<div class="summary">
+<div>Total Sale<br><b id="ts">0</b></div>
+<div>Total Expense<br><b id="te">0</b></div>
+<div>Profit<br><b id="pf">0</b></div>
+<div>Top Customer<br><b id="topc">-</b></div>
+</div>
+<h4>Daily Profit Chart</h4>
+<canvas id="chart"></canvas>
+</div>
+
+<!-- SALE ENTRY -->
+<div class="card hidden" id="sale">
+<h3>Sale Entry</h3>
+<input id="sd" type="date">
+<input id="sc" placeholder="Customer Name">
+<input id="sq" type="number" placeholder="Quantity">
+<input id="sr" type="number" placeholder="Rate">
+<input id="sp" type="number" placeholder="Received Payment (optional)">
+<button onclick="saveSale()">Save Sale</button>
+<button onclick="genInvoice()">Generate Invoice</button>
+<div id="invoice" class="invoice hidden"></div>
+</div>
+
+<!-- EXPENSE / LABOUR -->
+<div class="card hidden" id="exp">
+<h3>Expense / Labour Entry</h3>
+<input id="ed" type="date">
+<input id="en" placeholder="Labour / Expense Name">
+<input id="ea" type="number" placeholder="Amount">
+<button onclick="saveExp()">Save Expense</button>
+</div>
+
+<!-- CUSTOMER LEDGER -->
+<div class="card hidden" id="cust">
+<h3>Customer Ledger</h3>
+<table>
+<tr><th>Customer</th><th>Total Sale</th><th>Received</th><th>Pending</th><th>Edit</th><th>Delete</th></tr>
+<tbody id="ct"></tbody>
+</table>
+</div>
+
+<!-- LABOUR LEDGER -->
+<div class="card hidden" id="lab">
+<h3>Labour Ledger</h3>
+<table>
+<tr><th>Labour</th><th>Total Paid</th><th>Edit</th><th>Delete</th></tr>
+<tbody id="lt"></tbody>
+</table>
+</div>
+
+<!-- REPORTS -->
+<div class="card hidden" id="rep">
+<h3>Date / Monthly Report</h3>
+<input id="rd" type="date">
+<input id="rm" type="month">
+<button onclick="report()">Generate</button>
+<table>
+<tr><th>Type</th><th>Date</th><th>Name</th><th>Amount</th><th>Edit</th><th>Delete</th></tr>
+<tbody id="rt"></tbody>
+</table>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="card hidden" id="admin">
+<h3>Admin Panel</h3>
+<input id="newPass" type="password" placeholder="New Password">
+<button onclick="changePass()">Change Password</button>
+<input id="newName" placeholder="Company Name">
+<button onclick="changeCompany()">Change Company Name</button>
+</div>
+
+<script>
+// DATA
+let sales = JSON.parse(localStorage.getItem("sales")||"[]");
+let exps = JSON.parse(localStorage.getItem("exps")||"[]");
+
+// LOGIN
+function login(){
+ let u = document.getElementById('u').value;
+ let p = document.getElementById('p').value;
+ let pass = localStorage.getItem('pass') || "1234";
+ if(u==="admin" && p===pass){
+   document.getElementById('login').classList.add('hidden');
+   document.getElementById('app').classList.remove('hidden');
+   load();
+ } else alert("Wrong Username or Password");
+}
+
+// LOGOUT
+function logout(){
+ document.getElementById('app').classList.add('hidden');
+ document.getElementById('login').classList.remove('hidden');
+}
+
+// TOGGLE MENU
+function toggle(){
+ let side=document.getElementById('side');
+ side.style.left = side.style.left==="0px"?"-260px":"0px";
+}
+
+// SHOW PAGE
+function show(id){
+["dash","sale","exp","cust","lab","rep","admin"].forEach(x=>document.getElementById(x).classList.add("hidden"));
+document.getElementById(id).classList.remove("hidden");
+toggle();
+}
+
+// SAVE SALE
+function saveSale(){
+ let sd=document.getElementById('sd').value;
+ let sc=document.getElementById('sc').value;
+ let sq=Number(document.getElementById('sq').value);
+ let sr=Number(document.getElementById('sr').value);
+ let sp=Number(document.getElementById('sp').value)||0;
+ if(!sd||!sc||!sq||!sr){alert("Fill all fields");return;}
+ sales.push({d:sd,c:sc,a:sq*sr,r:sp});
+ localStorage.setItem("sales",JSON.stringify(sales));
+ document.getElementById('sd').value=document.getElementById('sc').value=document.getElementById('sq').value=document.getElementById('sr').value=document.getElementById('sp').value="";
+ load();
+}
+
+// SAVE EXPENSE
+function saveExp(){
+ let ed=document.getElementById('ed').value;
+ let en=document.getElementById('en').value;
+ let ea=Number(document.getElementById('ea').value);
+ if(!ed||!en||!ea){alert("Fill all fields");return;}
+ exps.push({d:ed,n:en,a:ea});
+ localStorage.setItem("exps",JSON.stringify(exps));
+ document.getElementById('ed').value=document.getElementById('en').value=document.getElementById('ea').value="";
+ load();
+}
+
+// LOAD DASHBOARD & LEDGERS
+function load(){
+ let ts=0, te=0, cm={}, lm={}, pd={};
+ sales.forEach(x=>{
+   ts+=x.a;
+   if(!cm[x.c]) cm[x.c]={total:0,rec:0};
+   cm[x.c].total+=x.a; cm[x.c].rec+=x.r;
+   pd[x.d]=(pd[x.d]||0)+x.a;
+ });
+ exps.forEach(x=>{
+   te+=x.a;
+   lm[x.n]=(lm[x.n]||0)+x.a;
+   pd[x.d]=(pd[x.d]||0)-x.a;
+ });
+ document.getElementById('ts').innerText=ts;
+ document.getElementById('te').innerText=te;
+ document.getElementById('pf').innerText=ts-te;
+ document.getElementById('topc').innerText=Object.keys(cm).sort((a,b)=>cm[b].total-cm[a].total)[0]||"-";
+
+ // CUSTOMER LEDGER
+ document.getElementById('ct').innerHTML=Object.keys(cm).map(k=>`<tr><td>${k}</td><td>${cm[k].total}</td><td>${cm[k].rec}</td><td>${cm[k].total-cm[k].rec}</td>
+ <td><button class="edit" onclick="editSaleByCustomer('${k}')">Edit</button></td>
+ <td><button class="del" onclick="deleteSaleByCustomer('${k}')">Delete</button></td></tr>`).join("");
+
+ // LABOUR LEDGER
+ document.getElementById('lt').innerHTML=Object.keys(lm).map(k=>`<tr><td>${k}</td><td>${lm[k]}</td>
+ <td><button class="edit" onclick="editExpByLabour('${k}')">Edit</button></td>
+ <td><button class="del" onclick="deleteExpByLabour('${k}')">Delete</button></td></tr>`).join("");
+
+ drawChart(pd);
+}
+
+// CHART DRAW
+function drawChart(data){
+ let c=document.getElementById("chart"),x=c.getContext("2d");
+ c.width=300;c.height=150;x.clearRect(0,0,300,150);
+ let keys=Object.keys(data).slice(-7);
+ let max=Math.max(...Object.values(data),10);
+ keys.forEach((k,i)=>{
+  let h=(data[k]/max)*100;
+  x.fillRect(i*40+20,130-h,20,h);
+  x.fillText(k.slice(5),i*40+20,145);
+ });
+}
+
+// BACKUP CSV
+function backup(){
+ let csv="Type,Date,Name,Amount,Received\n";
+ sales.forEach(x=>csv+=`Sale,${x.d},${x.c},${x.a},${x.r}\n`);
+ exps.forEach(x=>csv+=`Expense,${x.d},${x.n},${x.a},\n`);
+ let a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob([csv]));
+ a.download="woodworks_ultra_backup.csv";a.click();
+}
+
+// INVOICE
+function genInvoice(){
+ if(sales.length===0){alert("No sale yet"); return;}
+ let x=sales[sales.length-1];
+ let inv=document.getElementById('invoice');
+ inv.innerHTML=`<b>Invoice</b><br>Date: ${x.d}<br>Customer: ${x.c}<br>Total: ${x.a}<br>Received: ${x.r}<br>Pending: ${x.a-x.r}`;
+ inv.classList.remove('hidden');
+ window.print();
+}
+
+// ADMIN PANEL
+function changePass(){
+ let np=document.getElementById('newPass').value;
+ if(np){localStorage.setItem('pass',np); alert("Password changed"); document.getElementById('newPass').value="";}
+}
+function changeCompany(){
+ let n=document.getElementById('newName').value;
+ if(n){document.getElementById('companyName').innerText=n; document.getElementById('newName').value="";}
+}
+
+// REPORTS
+function report(){
+ let rd=document.getElementById('rd').value;
+ let rm=document.getElementById('rm').value;
+ let html="";
+ sales.forEach((x,i)=>{
+  if((!rd||x.d===rd)&&(!rm||x.d.startsWith(rm)))
+   html+=`<tr><td>Sale</td><td>${x.d}</td><td>${x.c}</td><td>${x.a}</td>
+   <td><button class="edit" onclick="editSale(${i})">Edit</button></td>
+   <td><button class="del" onclick="delSale(${i})">X</button></td></tr>`;
+ });
+ exps.forEach((x,i)=>{
+  if((!rd||x.d===rd)&&(!rm||x.d.startsWith(rm)))
+   html+=`<tr><td>Expense</td><td>${x.d}</td><td>${x.n}</td><td>${x.a}</td>
+   <td><button class="edit" onclick="editExp(${i})">Edit</button></td>
+   <td><button class="del" onclick="delExp(${i})">X</button></td></tr>`;
+ });
+ document.getElementById('rt').innerHTML=html;
+}
+
+// EDIT / DELETE FUNCTIONS
+function editSale(i){
+ let x=sales[i];
+ document.getElementById('sd').value=x.d;
+ document.getElementById('sc').value=x.c;
+ document.getElementById('sq').value=x.a/1;
+ document.getElementById('sr').value=1;
+ document.getElementById('sp').value=x.r;
+ show('sale');
+}
+function editExp(i){
+ let x=exps[i];
+ document.getElementById('ed').value=x.d;
+ document.getElementById('en').value=x.n;
+ document.getElementById('ea').value=x.a;
+ show('exp');
+}
+function delSale(i){if(confirm("Delete?")){sales.splice(i,1);localStorage.setItem("sales",JSON.stringify(sales));load();report();}}
+function delExp(i){if(confirm("Delete?")){exps.splice(i,1);localStorage.setItem("exps",JSON.stringify(exps));load();report();}}
+
+// EDIT / DELETE BY CUSTOMER / LABOUR
+function editSaleByCustomer(cust){let i=sales.findIndex(x=>x.c===cust);if(i>=0) editSale(i);}
+function deleteSaleByCustomer(cust){let i=sales.findIndex(x=>x.c===cust);if(i>=0) delSale(i);}
+function editExpByLabour(name){let i=exps.findIndex(x=>x.n===name);if(i>=0) editExp(i);}
+function deleteExpByLabour(name){let i=exps.findIndex(x=>x.n===name);if(i>=0) delExp(i);}
+</script>
+
+</body>
+</html>
